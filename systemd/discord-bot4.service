@@ -1,0 +1,15 @@
+[Unit]
+Description=Discord bot 4 - everything bot (moderation/automod/fun/AI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/bots/bot4
+ExecStart=/root/bots/bot4/venv/bin/python /root/bots/bot4/bot.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
