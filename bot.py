@@ -30,7 +30,9 @@ EXTENSIONS = [
     "cogs.utility",
     "cogs.ai_chat",
     "cogs.web_search",
+    "cogs.music",
 ]
+# leave while you still can on god please leave its not worth it
 
 
 class EverythingBot(commands.Bot):
@@ -55,11 +57,32 @@ class EverythingBot(commands.Bot):
         if config.GUILD_ID:
             guild = discord.Object(id=config.GUILD_ID)
             self.tree.copy_global_to(guild=guild)
-            synced = await self.tree.sync(guild=guild)
-            log.info("Synced %d application commands to guild %s (instant)", len(synced), config.GUILD_ID)
+            try:
+                synced = await self.tree.sync(guild=guild)
+                log.info("Synced %d application commands to guild %s (instant)", len(synced), config.GUILD_ID)
+            except discord.Forbidden:
+                log.error(
+                    "Guild command sync failed with 403 Forbidden - the bot's server invite is missing the "
+                    "'applications.commands' OAuth2 scope. Fix: Discord Developer Portal > OAuth2 > URL Generator, "
+                    "check both 'bot' and 'applications.commands', then open the generated URL to re-authorize it "
+                    "for this server (no need to remove the bot first). Continuing startup without synced slash "
+                    "commands for now - everything else (automod, message-based features) is unaffected."
+                )
+            # Clear out any commands left over from a previous global sync so they
+            # don't show up as duplicates alongside the guild-synced ones above.
+            # This doesn't require the applications.commands guild grant, so it
+            # runs independently of whether the sync above succeeded.
+            try:
+                self.tree.clear_commands(guild=None)
+                await self.tree.sync()
+            except discord.HTTPException:
+                log.exception("Failed to clear stale global application commands")
         else:
-            synced = await self.tree.sync()
-            log.info("Synced %d application commands globally (can take up to an hour to appear)", len(synced))
+            try:
+                synced = await self.tree.sync()
+                log.info("Synced %d application commands globally (can take up to an hour to appear)", len(synced))
+            except discord.HTTPException:
+                log.exception("Global command sync failed")
 
     async def close(self):
         await self.db.close()

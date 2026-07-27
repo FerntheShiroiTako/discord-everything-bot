@@ -53,4 +53,20 @@ AUTOMOD_MAX_MENTIONS = _int("AUTOMOD_MAX_MENTIONS", 6)
 AUTOMOD_SPAM_MSG_COUNT = _int("AUTOMOD_SPAM_MSG_COUNT", 5)
 AUTOMOD_SPAM_INTERVAL_SECS = _float("AUTOMOD_SPAM_INTERVAL_SECS", 5)
 
+# A user who racks up this many automod warnings (any kind - spam, invites,
+# links, banned words, mentions) within AUTOMOD_WARN_WINDOW_SECS gets timed out
+# for AUTOMOD_TIMEOUT_MINUTES instead of just getting another warning.
+AUTOMOD_WARN_THRESHOLD = _int("AUTOMOD_WARN_THRESHOLD", 3)
+AUTOMOD_WARN_WINDOW_SECS = _float("AUTOMOD_WARN_WINDOW_SECS", 600)
+AUTOMOD_TIMEOUT_MINUTES = _int("AUTOMOD_TIMEOUT_MINUTES", 10)
+
+# Path/name of the ffmpeg executable used to transcode audio for voice playback.
+# Safe to leave as "ffmpeg" as long as it's on PATH.
+FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")
+MUSIC_MAX_QUEUE = _int("MUSIC_MAX_QUEUE", 200)
+MUSIC_MAX_PLAYLIST_SIZE = _int("MUSIC_MAX_PLAYLIST_SIZE", 25)
+MUSIC_DEFAULT_VOLUME = _int("MUSIC_DEFAULT_VOLUME", 100)
+# Auto-disconnect after this many seconds with an empty queue, or alone in the channel.
+MUSIC_IDLE_TIMEOUT_SECS = _int("MUSIC_IDLE_TIMEOUT_SECS", 300)
+
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

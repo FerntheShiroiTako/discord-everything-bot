@@ -16,6 +16,8 @@ AI chatbot: replies when mentioned, replied to, or in a designated channel. Work
 
 Logging: every moderation action and a set of passive events (message edits/deletes, joins/leaves, bans) get posted as embeds to a channel you configure with `/config logchannel`.
 
+Music: `/play` (search terms, a video link, or a playlist link), `/skip`, `/pause`, `/resume`, `/stop`, `/queue`, `/nowplaying`, `/volume`, `/shuffle`, `/loop` (off/track/queue), `/join`, `/leave`. Anyone in the same voice channel as the bot can control playback. Auto-disconnects after being idle or alone for a while. See the Music setup section below — it needs ffmpeg installed separately.
+
 ## Image moderation and child safety
 
 Do not attempt to build or train a classifier that detects CSAM yourself — that would require possessing the material to test against, which is illegal, and a hobbyist model would be unreliable besides. This bot instead supports two things, and you should use both:
@@ -23,6 +25,17 @@ Do not attempt to build or train a classifier that detects CSAM yourself — tha
 Discord's built-in Explicit Media Content Filter. Turn this on in Server Settings, Safety Setup. It runs platform-wide on every upload using PhotoDNA-based hash matching against known CSAM, integrated with NCMEC reporting, independent of any bot. This is the actual backstop and works even if the bot is offline.
 
 An optional bot-level filter for general explicit/adult imagery, via Sightengine or Hive — both are established, licensed moderation API providers used by many Discord communities, with nudity/explicit classifiers and (in Hive's case) child-safety-specific models meant for platform moderation. Set `IMAGE_MOD_PROVIDER` and the matching API credentials in `.env`, then run `/automod images true` in the server to turn it on. Flagged images are deleted and the poster is banned automatically, with the action logged and a reminder to also use Discord's in-app Report Message action to escalate to Discord Trust & Safety.
+
+## Music setup
+
+Music streams audio from YouTube via `yt-dlp`, transcoded live through `ffmpeg` — nothing is downloaded to disk. This is a legal gray area (against YouTube's Terms of Service around unauthorized access to media) that essentially every hobbyist Discord music bot operates in; keep this to your own private server, not a public or monetized bot.
+
+Requirements beyond `pip install -r requirements.txt` (which covers `PyNaCl` and `yt-dlp`):
+
+- **ffmpeg** must be installed separately and on `PATH` — it's not a pip package. On the droplet: `sudo apt install ffmpeg`. On Windows for local dev, install via your package manager of choice and confirm `ffmpeg -version` works.
+- On Linux, discord.py also needs **libopus** for voice: `sudo apt install libopus0`.
+
+If either ffmpeg or `PyNaCl` is missing, the Music cog just logs a warning and doesn't load — no crash. `yt-dlp` breaks periodically when YouTube changes things; if playback suddenly stops working, try `pip install -U yt-dlp` first.
 
 ## Discord application setup
 
@@ -32,7 +45,7 @@ Under Bot, enable the Server Members Intent and Message Content Intent (privileg
 
 Copy the bot token; it goes in `DISCORD_TOKEN`.
 
-Under OAuth2, URL Generator, select the `bot` and `applications.commands` scopes, then select these bot permissions: Kick Members, Ban Members, Moderate Members, Manage Messages, Manage Channels, Manage Roles, Read Message History, Send Messages, Embed Links, Attach Files, Add Reactions. Use the generated URL to invite the bot to your server.
+Under OAuth2, URL Generator, select the `bot` and `applications.commands` scopes, then select these bot permissions: Kick Members, Ban Members, Moderate Members, Manage Messages, Manage Channels, Manage Roles, Read Message History, Send Messages, Embed Links, Attach Files, Add Reactions, Connect, Speak. Use the generated URL to invite the bot to your server. (Connect/Speak are only needed for the music feature.)
 
 ## Configuration reference
 
@@ -51,6 +64,10 @@ All configuration lives in `.env` (copy `.env.example` to `.env` and fill it in)
 | `IMAGE_MOD_PROVIDER` | `sightengine`, `hive`, or blank to disable image moderation |
 | `SIGHTENGINE_API_USER` / `SIGHTENGINE_API_SECRET` | Used when `IMAGE_MOD_PROVIDER=sightengine` |
 | `HIVE_API_KEY` | Used when `IMAGE_MOD_PROVIDER=hive` |
+| `FFMPEG_PATH` | ffmpeg executable name/path for music playback; requires ffmpeg installed separately (see Music setup) |
+| `MUSIC_MAX_QUEUE` / `MUSIC_MAX_PLAYLIST_SIZE` | Caps on queue length and per-playlist tracks added at once |
+| `MUSIC_DEFAULT_VOLUME` | Starting volume percent (0-200) |
+| `MUSIC_IDLE_TIMEOUT_SECS` | Auto-disconnect after this long idle or alone in the channel |
 
 Per-server settings (log channel, which filters are on, banned words, AI channel) are stored in the SQLite database and set with in-Discord commands, not `.env` — see below.
 

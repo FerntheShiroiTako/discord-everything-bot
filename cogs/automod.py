@@ -17,6 +17,7 @@ import logging
 import re
 import time
 from collections import defaultdict, deque
+from datetime import timedelta
 
 import aiohttp
 import discord
@@ -37,6 +38,7 @@ class Automod(commands.Cog):
         self.bot = bot
         self.session: aiohttp.ClientSession | None = None
         self._recent_messages: dict[tuple[int, int], deque] = defaultdict(deque)
+        self._violations: dict[tuple[int, int], deque] = defaultdict(deque)
 
     async def cog_load(self):
         self.session = aiohttp.ClientSession()
@@ -74,6 +76,8 @@ class Automod(commands.Cog):
             return
         if await self._check_invites(message, settings):
             return
+        if await self._check_links(message, settings):
+            return
         if await self._check_banned_words(message, settings):
             return
         if await self._check_mentions(message, settings):
@@ -86,11 +90,46 @@ class Automod(commands.Cog):
         except discord.NotFound:
             pass
         try:
-            await message.channel.send(
-                f"{message.author.mention}, your message was removed: {reason}", delete_after=8
-            )
+            await message.channel.send(f"{message.author.mention}, your message was removed: {reason}")
         except discord.Forbidden:
             pass
+        await self._register_violation(message)
+
+    async def _register_violation(self, message: discord.Message):
+        """Tracks repeated automod violations per user and times them out once
+        they rack up enough warnings within the window, instead of letting
+        them keep ignoring individual warnings indefinitely."""
+        key = (message.guild.id, message.author.id)
+        history = self._violations[key]
+        now = time.monotonic()
+        history.append(now)
+        while history and now - history[0] > config.AUTOMOD_WARN_WINDOW_SECS:
+            history.popleft()
+        if len(history) < config.AUTOMOD_WARN_THRESHOLD:
+            return
+        history.clear()
+
+        member = message.author
+        try:
+            await member.timeout(
+                timedelta(minutes=config.AUTOMOD_TIMEOUT_MINUTES),
+                reason=f"Automod: {config.AUTOMOD_WARN_THRESHOLD} violations within {int(config.AUTOMOD_WARN_WINDOW_SECS)}s",
+            )
+        except discord.Forbidden:
+            log.warning("Missing permission to timeout repeat offender in guild %s", message.guild.id)
+            return
+
+        await self._alert(
+            message.guild,
+            title="Automod: Auto-Timeout",
+            color=discord.Color.red(),
+            fields={
+                "User": f"{member} ({member.id})",
+                "Channel": message.channel.mention,
+                "Duration": f"{config.AUTOMOD_TIMEOUT_MINUTES} minute(s)",
+                "Reason": f"{config.AUTOMOD_WARN_THRESHOLD} automod violations without slowing down",
+            },
+        )
 
     async def _check_spam(self, message: discord.Message, settings) -> bool:
         if not settings.spam_filter_enabled:
@@ -138,6 +177,24 @@ class Automod(commands.Cog):
             await self._alert(
                 message.guild,
                 title="Automod: Invite Link Removed",
+                color=discord.Color.gold(),
+                fields={
+                    "User": f"{message.author} ({message.author.id})",
+                    "Channel": message.channel.mention,
+                    "Content": message.content,
+                },
+            )
+            return True
+        return False
+
+    async def _check_links(self, message: discord.Message, settings) -> bool:
+        if not settings.link_filter_enabled:
+            return False
+        if URL_RE.search(message.content):
+            await self._delete_and_warn(message, "posting a link")
+            await self._alert(
+                message.guild,
+                title="Automod: Link Removed",
                 color=discord.Color.gold(),
                 fields={
                     "User": f"{message.author} ({message.author.id})",
@@ -260,6 +317,12 @@ class Automod(commands.Cog):
     async def automod_toggle(self, ctx: commands.Context, enabled: bool):
         await self.bot.db.update_settings(ctx.guild.id, automod_enabled=enabled)
         await ctx.reply(f"Automod is now {'enabled' if enabled else 'disabled'}.")
+
+    @automod.command(name="links", description="Enable or disable the general link filter (blocks all URLs, not just Discord invites).")
+    @is_admin()
+    async def automod_links(self, ctx: commands.Context, enabled: bool):
+        await self.bot.db.update_settings(ctx.guild.id, link_filter_enabled=enabled)
+        await ctx.reply(f"Link filter is now {'enabled' if enabled else 'disabled'}.")
 
     @automod.command(name="images", description="Enable or disable image moderation (requires IMAGE_MOD_PROVIDER configured).")
     @is_admin()
