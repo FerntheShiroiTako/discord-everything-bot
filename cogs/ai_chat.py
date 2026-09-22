@@ -4,8 +4,8 @@ compatible, so a single client with a swapped base_url and key covers either
 provider - see config.AI_PROVIDER.
 
 The bot replies when it's mentioned, when a message is a reply to one of its
-own messages, or in a designated channel (set with /ai setchannel). Short
-per-channel history is kept in memory only, so it resets on restart.
+own messages, or in a designated channel (set with /config ai setchannel).
+Short per-channel history is kept in memory only, so it resets on restart.
 """
 import logging
 from collections import defaultdict, deque
@@ -85,28 +85,6 @@ class AIChat(commands.Cog):
         reply = response.choices[0].message.content
         history.append({"role": "assistant", "content": reply})
         return reply
-
-    @commands.hybrid_group(description="Configure the AI chatbot for this server.")
-    @commands.has_permissions(manage_guild=True)
-    async def ai(self, ctx: commands.Context):
-        if ctx.invoked_subcommand is None:
-            settings = await self.bot.db.get_settings(ctx.guild.id)
-            channel = ctx.guild.get_channel(settings.ai_channel_id) if settings.ai_channel_id else None
-            await ctx.reply(
-                f"AI chat: {'enabled' if settings.ai_enabled else 'disabled'} in "
-                f"{channel.mention if channel else 'no channel set'}. "
-                f"Provider: {config.AI_PROVIDER or 'not configured'}."
-            )
-
-    @ai.command(name="setchannel", description="Set the channel where the bot always responds without needing a mention.")
-    async def ai_setchannel(self, ctx: commands.Context, channel: discord.TextChannel):
-        await self.bot.db.update_settings(ctx.guild.id, ai_channel_id=channel.id, ai_enabled=True)
-        await ctx.reply(f"AI chat is now active in {channel.mention}. It'll also always respond to mentions/replies anywhere.")
-
-    @ai.command(name="toggle", description="Enable or disable the always-on AI channel (mentions/replies still work).")
-    async def ai_toggle(self, ctx: commands.Context, enabled: bool):
-        await self.bot.db.update_settings(ctx.guild.id, ai_enabled=enabled)
-        await ctx.reply(f"AI channel mode is now {'enabled' if enabled else 'disabled'}.")
 
 
 async def setup(bot: commands.Bot):

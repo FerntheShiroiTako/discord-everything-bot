@@ -1,10 +1,8 @@
-"""General utility commands: ping, info, and server configuration."""
+"""General utility commands: ping and info. Server configuration lives in cogs/config.py."""
 import time
 
 import discord
 from discord.ext import commands
-
-from utils.checks import is_admin
 
 
 class Utility(commands.Cog):
@@ -42,19 +40,6 @@ class Utility(commands.Cog):
         roles = [r.mention for r in member.roles if r != ctx.guild.default_role]
         embed.add_field(name="Roles", value=", ".join(roles) if roles else "None", inline=False)
         await ctx.reply(embed=embed)
-
-    @commands.hybrid_group(description="Configure the bot for this server.")
-    @is_admin()
-    async def config(self, ctx: commands.Context):
-        if ctx.invoked_subcommand is None:
-            settings = await self.bot.db.get_settings(ctx.guild.id)
-            log_channel = ctx.guild.get_channel(settings.log_channel_id) if settings.log_channel_id else None
-            await ctx.reply(f"Log channel: {log_channel.mention if log_channel else 'not set'}")
-
-    @config.command(name="logchannel", description="Set the channel where the bot logs its actions.")
-    async def config_logchannel(self, ctx: commands.Context, channel: discord.TextChannel):
-        await self.bot.db.update_settings(ctx.guild.id, log_channel_id=channel.id)
-        await ctx.reply(f"Log channel set to {channel.mention}.")
 
 
 async def setup(bot: commands.Bot):

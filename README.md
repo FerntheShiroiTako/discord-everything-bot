@@ -1,6 +1,6 @@
 # Everything Bot
 
-A Discord bot for a small server: moderation, automod, fun commands, web search, action logging, and an optional AI chatbot mode (OpenAI or xAI).
+A general-purpose Discord bot you can invite to any number of servers: moderation, automod, fun commands, web search, action logging, and an optional AI chatbot mode (OpenAI or xAI). All per-server settings (log channel, automod, AI channel, banned words) are stored per-guild in SQLite, so every server the bot is in has its own independent configuration - `/setup` and `/config` only ever touch the server they're run in.
 
 ## Features
 
@@ -14,7 +14,9 @@ Web search: `/search` backed by the Tavily API.
 
 AI chatbot: replies when mentioned, replied to, or in a designated channel. Works with OpenAI (ChatGPT models) or xAI (Grok models) — pick one via `AI_PROVIDER`.
 
-Logging: every moderation action and a set of passive events (message edits/deletes, joins/leaves, bans) get posted as embeds to a channel you configure with `/config logchannel`.
+Logging: every moderation action and a set of passive events (message edits/deletes, joins/leaves, bans) get posted as embeds to a channel you configure with `/setup` or `/config logchannel`.
+
+Setup: `/setup` is a guided, interactive wizard (channel pickers and on/off toggles) that configures the log channel, automod, and AI chat for the current server in one go. `/config` is the full command hub for viewing and changing everything afterward (`/config show`, `/config logchannel`, `/config reset`, `/config automod ...`, `/config ai ...`). Run either any time — as an admin, in any server the bot is in.
 
 Music: `/play` (search terms, a video link, or a playlist link), `/skip`, `/pause`, `/resume`, `/stop`, `/queue`, `/nowplaying`, `/volume`, `/shuffle`, `/loop` (off/track/queue), `/join`, `/leave`. Anyone in the same voice channel as the bot can control playback. Auto-disconnects after being idle or alone for a while. See the Music setup section below — it needs ffmpeg installed separately.
 
@@ -24,7 +26,7 @@ Do not attempt to build or train a classifier that detects CSAM yourself — tha
 
 Discord's built-in Explicit Media Content Filter. Turn this on in Server Settings, Safety Setup. It runs platform-wide on every upload using PhotoDNA-based hash matching against known CSAM, integrated with NCMEC reporting, independent of any bot. This is the actual backstop and works even if the bot is offline.
 
-An optional bot-level filter for general explicit/adult imagery, via Sightengine or Hive — both are established, licensed moderation API providers used by many Discord communities, with nudity/explicit classifiers and (in Hive's case) child-safety-specific models meant for platform moderation. Set `IMAGE_MOD_PROVIDER` and the matching API credentials in `.env`, then run `/automod images true` in the server to turn it on. Flagged images are deleted and the poster is banned automatically, with the action logged and a reminder to also use Discord's in-app Report Message action to escalate to Discord Trust & Safety.
+An optional bot-level filter for general explicit/adult imagery, via Sightengine or Hive — both are established, licensed moderation API providers used by many Discord communities, with nudity/explicit classifiers and (in Hive's case) child-safety-specific models meant for platform moderation. Set `IMAGE_MOD_PROVIDER` and the matching API credentials in `.env`, then run `/config automod images true` in the server to turn it on. Flagged images are deleted and the poster is banned automatically, with the action logged and a reminder to also use Discord's in-app Report Message action to escalate to Discord Trust & Safety.
 
 ## Music setup
 
@@ -45,7 +47,7 @@ Under Bot, enable the Server Members Intent and Message Content Intent (privileg
 
 Copy the bot token; it goes in `DISCORD_TOKEN`.
 
-Under OAuth2, URL Generator, select the `bot` and `applications.commands` scopes, then select these bot permissions: Kick Members, Ban Members, Moderate Members, Manage Messages, Manage Channels, Manage Roles, Read Message History, Send Messages, Embed Links, Attach Files, Add Reactions, Connect, Speak. Use the generated URL to invite the bot to your server. (Connect/Speak are only needed for the music feature.)
+Under OAuth2, URL Generator, select the `bot` and `applications.commands` scopes, then select these bot permissions: Kick Members, Ban Members, Moderate Members, Manage Messages, Manage Channels, Manage Roles, Read Message History, Send Messages, Embed Links, Attach Files, Add Reactions, Connect, Speak. Use the generated URL to invite the bot to any server — both scopes are required in every server for slash commands (`/setup`, `/config`, etc.) to register there. This same invite link works for any number of servers; there's nothing per-server to configure in the Developer Portal.
 
 ## Configuration reference
 
@@ -56,7 +58,7 @@ All configuration lives in `.env` (copy `.env.example` to `.env` and fill it in)
 | `DISCORD_TOKEN` | Bot token from the Developer Portal |
 | `COMMAND_PREFIX` | Prefix for text commands (slash commands always work regardless) |
 | `OWNER_IDS` | Comma-separated Discord user IDs with bot-owner override on role checks |
-| `GUILD_ID` | Your server's ID; when set, slash commands sync to it instantly instead of the global sync (which can take up to an hour) |
+| `GUILD_ID` | Optional, dev-only. Your home server's ID; when set, slash commands *additionally* sync there instantly (on top of the normal global sync, which still runs regardless and is what makes commands work in every other server) — handy while iterating locally so you don't wait for global propagation |
 | `AI_PROVIDER` | `openai`, `xai`, or blank to disable the chatbot cog |
 | `OPENAI_API_KEY` / `OPENAI_MODEL` | Used when `AI_PROVIDER=openai` |
 | `XAI_API_KEY` / `XAI_MODEL` | Used when `AI_PROVIDER=xai` |
@@ -73,15 +75,21 @@ Per-server settings (log channel, which filters are on, banned words, AI channel
 
 ## In-Discord setup after inviting the bot
 
-Run these once per server, as an admin (Manage Server permission):
+The bot posts a welcome message with these instructions in the server's system channel (or the first channel it can post in) as soon as it joins. Do this once per server, as an admin (Manage Server permission) — it's independent from every other server the bot is in:
+
+Run `/setup` for a guided, interactive wizard: pick the log channel and (if configured) the AI chat channel from dropdowns, and click through the automod toggles — all in a single ephemeral message, in any order.
+
+Or configure things individually with `/config`:
 
 `/config logchannel #mod-log` to set where actions get logged.
 
-`/automod toggle true` to turn on automod, then `/automod addword` for any banned words.
+`/config automod toggle true` to turn on automod, then `/config automod addword` for any banned words.
 
-`/automod images true` if you configured `IMAGE_MOD_PROVIDER`.
+`/config automod images true` if you configured `IMAGE_MOD_PROVIDER`.
 
-`/ai setchannel #general` if you want the AI chatbot always-on in a channel; it'll also respond anywhere it's mentioned or replied to.
+`/config ai setchannel #general` if you want the AI chatbot always-on in a channel; it'll also respond anywhere it's mentioned or replied to.
+
+`/config show` any time to see the full current configuration, or `/config reset` to wipe it back to defaults.
 
 ## Local development
 

@@ -24,7 +24,6 @@ import discord
 from discord.ext import commands
 
 import config
-from utils.checks import is_admin
 
 log = logging.getLogger("bot.automod")
 
@@ -297,64 +296,6 @@ class Automod(commands.Cog):
         explicit_score = max(scores.get("general_nsfw", 0), scores.get("yes_sexual_activity", 0), scores.get("yes_undressed", 0))
         flagged = explicit_score >= config.IMAGE_MOD_NUDITY_THRESHOLD
         return flagged, f"explicit score {explicit_score:.2f}"
-
-    @commands.hybrid_group(description="Configure automod for this server.")
-    @is_admin()
-    async def automod(self, ctx: commands.Context):
-        if ctx.invoked_subcommand is None:
-            settings = await self.bot.db.get_settings(ctx.guild.id)
-            embed = discord.Embed(title="Automod Settings", color=discord.Color.blurple())
-            embed.add_field(name="Enabled", value=settings.automod_enabled)
-            embed.add_field(name="Spam Filter", value=settings.spam_filter_enabled)
-            embed.add_field(name="Invite Filter", value=settings.invite_filter_enabled)
-            embed.add_field(name="Link Filter", value=settings.link_filter_enabled)
-            embed.add_field(name="Image Moderation", value=settings.image_mod_enabled)
-            embed.add_field(name="Banned Words", value=str(len(settings.banned_words)))
-            await ctx.reply(embed=embed)
-
-    @automod.command(name="toggle", description="Enable or disable automod entirely.")
-    @is_admin()
-    async def automod_toggle(self, ctx: commands.Context, enabled: bool):
-        await self.bot.db.update_settings(ctx.guild.id, automod_enabled=enabled)
-        await ctx.reply(f"Automod is now {'enabled' if enabled else 'disabled'}.")
-
-    @automod.command(name="links", description="Enable or disable the general link filter (blocks all URLs, not just Discord invites).")
-    @is_admin()
-    async def automod_links(self, ctx: commands.Context, enabled: bool):
-        await self.bot.db.update_settings(ctx.guild.id, link_filter_enabled=enabled)
-        await ctx.reply(f"Link filter is now {'enabled' if enabled else 'disabled'}.")
-
-    @automod.command(name="images", description="Enable or disable image moderation (requires IMAGE_MOD_PROVIDER configured).")
-    @is_admin()
-    async def automod_images(self, ctx: commands.Context, enabled: bool):
-        if enabled and not config.IMAGE_MOD_PROVIDER:
-            return await ctx.reply(
-                "No image moderation provider is configured on the bot (IMAGE_MOD_PROVIDER in .env). "
-                "Set that up first, and make sure Discord's own Explicit Media Content Filter is enabled "
-                "in Server Settings > Safety Setup.",
-                ephemeral=True,
-            )
-        await self.bot.db.update_settings(ctx.guild.id, image_mod_enabled=enabled)
-        await ctx.reply(f"Image moderation is now {'enabled' if enabled else 'disabled'}.")
-
-    @automod.command(name="addword", description="Add a word/phrase to the banned words list.")
-    @is_admin()
-    async def automod_addword(self, ctx: commands.Context, *, word: str):
-        settings = await self.bot.db.get_settings(ctx.guild.id)
-        words = settings.banned_words
-        if word.lower() in [w.lower() for w in words]:
-            return await ctx.reply("That word is already banned.", ephemeral=True)
-        words.append(word)
-        await self.bot.db.update_settings(ctx.guild.id, banned_words=words)
-        await ctx.reply(f"Added `{word}` to the banned words list.", ephemeral=True)
-
-    @automod.command(name="removeword", description="Remove a word/phrase from the banned words list.")
-    @is_admin()
-    async def automod_removeword(self, ctx: commands.Context, *, word: str):
-        settings = await self.bot.db.get_settings(ctx.guild.id)
-        words = [w for w in settings.banned_words if w.lower() != word.lower()]
-        await self.bot.db.update_settings(ctx.guild.id, banned_words=words)
-        await ctx.reply(f"Removed `{word}` from the banned words list.", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

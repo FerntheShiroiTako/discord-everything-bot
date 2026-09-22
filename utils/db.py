@@ -126,6 +126,17 @@ class Database:
         await self._conn.commit()
         await self.get_settings(guild_id, refresh=True)
 
+    async def reset_settings(self, guild_id: int) -> GuildSettings:
+        """Wipes a guild's row back to defaults. Warnings are untouched."""
+        await self._conn.execute("DELETE FROM guild_settings WHERE guild_id = ?", (guild_id,))
+        await self._conn.commit()
+        self._cache.pop(guild_id, None)
+        return await self.get_settings(guild_id)
+
+    def drop_cache(self, guild_id: int):
+        """Evicts a guild's in-memory settings cache, e.g. after the bot leaves it."""
+        self._cache.pop(guild_id, None)
+
     async def add_warning(self, guild_id: int, user_id: int, moderator_id: int, reason: str) -> int:
         cur = await self._conn.execute(
             "INSERT INTO warnings (guild_id, user_id, moderator_id, reason, created_at) "

@@ -14,7 +14,7 @@ EIGHT_BALL_RESPONSES = [
     "My reply is no.", "My sources say no.", "Outlook not so good.", "Very doubtful.",
 ]
 
-MEME_SUBREDDITS = ["memes", "dankmemes", "wholesomememes"]
+MEME_SUBREDDIT = "memes"
 
 
 class Fun(commands.Cog):
@@ -72,9 +72,8 @@ class Fun(commands.Cog):
     @commands.hybrid_command(description="Get a random meme.")
     async def meme(self, ctx: commands.Context):
         await ctx.defer()
-        subreddit = random.choice(MEME_SUBREDDITS)
         try:
-            async with self.session.get(f"https://meme-api.com/gimme/{subreddit}", timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with self.session.get(f"https://meme-api.com/gimme/{MEME_SUBREDDIT}", timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 data = await resp.json()
         except Exception:
             return await ctx.reply("Couldn't fetch a meme right now, try again in a bit.")
@@ -82,7 +81,7 @@ class Fun(commands.Cog):
             return await ctx.reply("Got an NSFW result, try again.")
         embed = discord.Embed(title=data.get("title", "meme"), color=discord.Color.random())
         embed.set_image(url=data.get("url"))
-        embed.set_footer(text=f"r/{data.get('subreddit', subreddit)}")
+        embed.set_footer(text=f"r/{data.get('subreddit', MEME_SUBREDDIT)}")
         await ctx.reply(embed=embed)
 
     @commands.hybrid_command(description="Start a simple yes/no poll.")
